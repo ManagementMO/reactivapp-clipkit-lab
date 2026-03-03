@@ -111,6 +111,13 @@ Consider the full lifecycle of a concert-goer when deciding where your solution 
 - Reasonable assumptions are allowed where integrations are unavailable (e.g., Shopify API access may be provided).
 - All implementations should be runnable Swift-based Clips built on this starter kit.
 
+## Requirements
+
+- **macOS** with [Xcode 26+](https://developer.apple.com/xcode/) installed
+- **iOS 26+** simulator or device
+- **Swift 5.0**
+- No external dependencies (no SPM, CocoaPods, or Carthage)
+
 ## Setup
 
 1. Download [Xcode 26+](https://developer.apple.com/xcode/) from the Mac App Store or Apple Developer website (free, requires a Mac)
