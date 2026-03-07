@@ -1062,6 +1062,9 @@ struct StageswagRewardView: View {
     private func stageswagTogglePlayback() {
         isPlaying.toggle()
         if isPlaying {
+            if playbackProgress >= 1.0 {
+                playbackProgress = 0.0
+            }
             playbackTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
                 if playbackProgress < 1.0 {
                     playbackProgress += 0.0005
