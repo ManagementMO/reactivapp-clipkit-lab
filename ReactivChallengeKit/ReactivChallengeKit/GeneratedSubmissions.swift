@@ -567,7 +567,7 @@ struct StageswagSetlistView: View {
 
                         ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
                             let isUnlocked = elapsed >= song.unlockOffset
-                            let secondsLeft = max(0, Int(song.unlockOffset - elapsed))
+                            let secondsLeft = max(0, Int(ceil(song.unlockOffset - elapsed)))
 
                             StageswagSongRow(
                                 song: song,
