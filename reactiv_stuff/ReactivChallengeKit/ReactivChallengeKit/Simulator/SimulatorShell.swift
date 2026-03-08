@@ -10,6 +10,7 @@ internal import Combine
 struct SimulatorShell: View {
     @Bindable var router: ClipRouter
     @State private var invocationStart: Date?
+    @State private var didProcessPreviewLaunch = false
 
     var body: some View {
         ZStack {
@@ -31,6 +32,20 @@ struct SimulatorShell: View {
                 invocationStart = Date()
             }
         }
+        .onAppear {
+            processPreviewLaunchURLIfNeeded()
+        }
+    }
+
+    private func processPreviewLaunchURLIfNeeded() {
+        guard !didProcessPreviewLaunch else { return }
+        didProcessPreviewLaunch = true
+
+        let env = ProcessInfo.processInfo.environment
+        let previewURL = env["CLIPKIT_PREVIEW_URL"] ?? env["_XCAppClipURL"]
+        guard let previewURL, !previewURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+        router.invoke(urlString: previewURL)
     }
 }
 
@@ -115,7 +130,7 @@ struct ClipHostView: View {
             HStack {
                 Image(systemName: "bell.badge.fill")
                     .font(.system(size: 14))
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(SimulatorTheme.brand)
                 Text("8-HOUR PUSH WINDOW")
                     .font(.system(size: 11, weight: .bold))
                     .tracking(1)
@@ -127,14 +142,14 @@ struct ClipHostView: View {
                     let minutes = (Int(remaining) % 3600) / 60
                     Text("\(hours)h \(minutes)m remaining")
                         .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(SimulatorTheme.brand)
                 }
             }
 
             ForEach(Array(ChallengeMockData.notificationTemplates.prefix(3))) { template in
                 HStack(alignment: .top, spacing: 8) {
                     Circle()
-                        .fill(.orange)
+                        .fill(SimulatorTheme.brandSoft)
                         .frame(width: 6, height: 6)
                         .padding(.top, 5)
 
@@ -176,7 +191,7 @@ struct NotificationWindowPill: View {
                 Text("8h")
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
             }
-            .foregroundStyle(.orange)
+            .foregroundStyle(SimulatorTheme.brand)
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
             .glassEffect(.regular.interactive(), in: .capsule)

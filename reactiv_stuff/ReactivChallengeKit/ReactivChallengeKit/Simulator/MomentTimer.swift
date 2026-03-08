@@ -7,7 +7,7 @@
 import SwiftUI
 internal import Combine
 
-/// Floating pill showing seconds since clip invocation. Green < 20s, yellow < 30s, red >= 30s.
+/// Floating pill showing seconds since clip invocation.
 struct MomentTimer: View {
     let startDate: Date
     @State private var elapsed: TimeInterval = 0
@@ -32,8 +32,8 @@ struct MomentTimer: View {
     }
 
     private var dotColor: Color {
-        if elapsed >= 30 { return .red }
-        if elapsed >= 20 { return .yellow }
-        return .green
+        if elapsed >= 30 { return Color(.tertiaryLabel) }
+        if elapsed >= 20 { return SimulatorTheme.brandSoft }
+        return SimulatorTheme.brand
     }
 }

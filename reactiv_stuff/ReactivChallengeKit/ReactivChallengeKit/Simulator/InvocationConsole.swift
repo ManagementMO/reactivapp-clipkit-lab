@@ -17,7 +17,7 @@ struct InvocationConsole: View {
             if let error = router.errorMessage {
                 Text(error)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(SimulatorTheme.brand)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
@@ -47,7 +47,7 @@ struct InvocationConsole: View {
                     Button(action: invokeURL) {
                         Image(systemName: "arrow.up.circle.fill")
                             .font(.system(size: 28))
-                            .foregroundStyle(urlText.trimmingCharacters(in: .whitespaces).isEmpty ? Color.gray.opacity(0.3) : Color.blue)
+                            .foregroundStyle(urlText.trimmingCharacters(in: .whitespaces).isEmpty ? Color.gray.opacity(0.3) : SimulatorTheme.brand)
                     }
                     .disabled(urlText.trimmingCharacters(in: .whitespaces).isEmpty)
                 }

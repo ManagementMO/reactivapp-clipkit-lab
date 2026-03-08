@@ -12,7 +12,7 @@ struct ConstraintBanner: View {
         HStack(spacing: 10) {
             Image(systemName: "appclip")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.blue)
+                .foregroundStyle(SimulatorTheme.brand)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text("App Clip Preview")
@@ -27,7 +27,7 @@ struct ConstraintBanner: View {
 
             Text("GET")
                 .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(.blue)
+                .foregroundStyle(SimulatorTheme.brand)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 6)
                 .glassEffect(.regular.interactive(), in: .capsule)

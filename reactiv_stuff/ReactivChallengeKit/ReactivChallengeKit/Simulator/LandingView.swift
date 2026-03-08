@@ -117,7 +117,7 @@ struct LandingView: View {
                                         .font(.system(size: 10, weight: .bold))
                                         .foregroundStyle(.white)
                                         .frame(width: 18, height: 18)
-                                        .background(.blue, in: .circle)
+                                        .background(SimulatorTheme.brand, in: .circle)
                                 }
                             }
                             .foregroundStyle(isSelected ? .primary : .secondary)
@@ -148,7 +148,7 @@ struct LandingView: View {
             HStack(spacing: 6) {
                 Image(systemName: selectedTouchpoint.icon)
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(SimulatorTheme.brand)
                 Text(selectedTouchpoint.context)
                     .font(.system(size: 12))
                     .foregroundStyle(Color(.label))
@@ -157,7 +157,7 @@ struct LandingView: View {
             HStack(spacing: 5) {
                 Image(systemName: "bell.fill")
                     .font(.system(size: 9))
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(SimulatorTheme.brandSoft)
                 Text(selectedTouchpoint.notificationHint)
                     .font(.system(size: 11))
                     .foregroundStyle(Color(.secondaryLabel))
@@ -205,7 +205,7 @@ struct LandingView: View {
 
             Text("Set touchpoint id = \"\(selectedTouchpoint.id)\"")
                 .font(.system(size: 12, design: .monospaced))
-                .foregroundStyle(.blue.opacity(0.6))
+                .foregroundStyle(SimulatorTheme.brand.opacity(0.68))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 40)
@@ -252,7 +252,7 @@ struct InvocationCard: View {
                     if experience.teamName != "Reactiv" {
                         Text(experience.teamName)
                             .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(SimulatorTheme.brand)
                     }
                 }
 
@@ -269,13 +269,13 @@ struct InvocationCard: View {
                 HStack(spacing: 10) {
                     Image(systemName: experience.invocationSource.icon)
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(SimulatorTheme.brand)
                         .frame(width: 32, height: 32)
                         .glassEffect(.regular.interactive(), in: .circle)
 
                     Text(experience.invocationSource.triggerLabel)
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(SimulatorTheme.brand)
 
                     Spacer()
 

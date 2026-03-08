@@ -13,49 +13,57 @@ struct QRScannerView: View {
     var body: some View {
         ZStack {
             #if targetEnvironment(simulator)
-            // Simulator fallback
-            Color.black.ignoresSafeArea()
-            VStack(spacing: 16) {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.09, green: 0.11, blue: 0.16),
+                    Color(red: 0.15, green: 0.22, blue: 0.34)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
+            VStack(spacing: 14) {
                 Image(systemName: "camera.fill")
-                    .font(.system(size: 48))
-                    .foregroundStyle(.gray)
+                    .font(.system(size: 46, weight: .light))
+                    .foregroundStyle(.white.opacity(0.78))
                 Text("Camera not available on Simulator")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(.gray)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.9))
                 Text("Use manual entry or demo cards instead")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.gray.opacity(0.7))
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.72))
             }
+            .padding(18)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             #else
             CameraPreview(torchOn: $torchOn, onScanned: onScanned)
                 .ignoresSafeArea()
+                .overlay {
+                    LinearGradient(
+                        colors: [.black.opacity(0.32), .clear, .black.opacity(0.4)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .ignoresSafeArea()
+                }
             #endif
 
-            // Scanning overlay
             scannerOverlay
 
-            // Controls
             VStack {
                 HStack {
-                    Button(action: onCancel) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 40, height: 40)
-                            .background(.ultraThinMaterial, in: Circle())
-                    }
+                    controlButton(icon: "xmark", isTorch: false) { onCancel() }
 
                     Spacer()
 
                     #if !targetEnvironment(simulator)
-                    Button {
+                    controlButton(
+                        icon: torchOn ? "flashlight.on.fill" : "flashlight.off.fill",
+                        isTorch: torchOn
+                    ) {
                         torchOn.toggle()
-                    } label: {
-                        Image(systemName: torchOn ? "flashlight.on.fill" : "flashlight.off.fill")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(torchOn ? .yellow : .white)
-                            .frame(width: 40, height: 40)
-                            .background(.ultraThinMaterial, in: Circle())
                     }
                     #endif
                 }
@@ -64,14 +72,34 @@ struct QRScannerView: View {
 
                 Spacer()
 
-                Text("Point camera at a ClipCheck QR code")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.8))
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 10)
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .padding(.bottom, 40)
+                VStack(spacing: 4) {
+                    Text("Point camera at a ClipCheck QR code")
+                        .font(.system(size: 14, weight: .semibold))
+                    Text("Scans automatically when detected")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.72))
+                }
+                .foregroundStyle(.white.opacity(0.9))
+                .padding(.horizontal, 18)
+                .padding(.vertical, 10)
+                .background(.ultraThinMaterial, in: Capsule())
+                .glassEffect(.regular.interactive(), in: Capsule())
+                .padding(.bottom, 40)
             }
+        }
+    }
+
+    private func controlButton(icon: String, isTorch: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(isTorch ? .yellow : .white)
+                .frame(width: 42, height: 42)
+                .background(.ultraThinMaterial, in: Circle())
+                .overlay {
+                    Circle().strokeBorder(.white.opacity(0.3), lineWidth: 0.8)
+                }
+                .glassEffect(.regular.interactive(), in: Circle())
         }
     }
 
@@ -89,12 +117,12 @@ struct QRScannerView: View {
 
             // Dark overlay with cutout
             ScannerMask(cutout: rect)
-                .fill(.black.opacity(0.5))
+                .fill(.black.opacity(0.56))
                 .ignoresSafeArea()
 
             // Corner brackets
             CornerBrackets(rect: rect)
-                .stroke(.white, lineWidth: 3)
+                .stroke(.white.opacity(0.9), lineWidth: 3)
         }
     }
 }

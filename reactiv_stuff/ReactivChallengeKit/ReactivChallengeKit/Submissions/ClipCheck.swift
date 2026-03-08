@@ -21,26 +21,90 @@ private let fullDateFormatter: DateFormatter = {
 
 // MARK: - Design System
 
-private struct CardStyle: ViewModifier {
-    var cornerRadius: CGFloat = 16
+private enum ClipCheckTheme {
+    static let brand = Color(red: 0.188, green: 0.384, blue: 0.949)
+    static let brandSoft = Color(red: 0.412, green: 0.643, blue: 0.988)
+    static let ink = Color(red: 0.086, green: 0.106, blue: 0.173)
+}
+
+private enum ClipCheckMotion {
+    static let page = Animation.spring(response: 0.46, dampingFraction: 0.86)
+    static let card = Animation.spring(response: 0.42, dampingFraction: 0.84)
+    static let reveal = Animation.easeOut(duration: 0.34)
+    static let quick = Animation.easeOut(duration: 0.2)
+}
+
+private struct StaggeredReveal: ViewModifier {
+    let index: Int
+    let isVisible: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content
-            .background {
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(.regularMaterial)
-                    .shadow(color: .black.opacity(0.05), radius: 10, y: 3)
-            }
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
-            )
+            .opacity(isVisible ? 1 : 0)
+            .offset(y: isVisible ? 0 : (reduceMotion ? 0 : 12))
+            .scaleEffect(isVisible ? 1 : (reduceMotion ? 1 : 0.985))
+            .animation(reduceMotion ? ClipCheckMotion.quick : ClipCheckMotion.card.delay(Double(index) * 0.06), value: isVisible)
     }
 }
 
 private extension View {
-    func cardStyle(cornerRadius: CGFloat = 16) -> some View {
-        modifier(CardStyle(cornerRadius: cornerRadius))
+    func staggered(index: Int, isVisible: Bool) -> some View {
+        modifier(StaggeredReveal(index: index, isVisible: isVisible))
+    }
+}
+
+private struct SectionTitle: View {
+    let title: String
+    let icon: String
+    var accent: Color = ClipCheckTheme.brand
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(accent)
+            Text(title)
+                .font(.system(size: 12, weight: .semibold))
+                .tracking(0.9)
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+    }
+}
+
+private struct CardStyle: ViewModifier {
+    var cornerRadius: CGFloat = 20
+    var tint: Color = ClipCheckTheme.brand
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+
+        content
+            .background {
+                shape
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        LinearGradient(
+                            colors: [tint.opacity(0.14), .white.opacity(0.02)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        .clipShape(shape)
+                    }
+            }
+            .overlay {
+                shape
+                    .strokeBorder(.white.opacity(0.22), lineWidth: 0.8)
+            }
+            .glassEffect(.regular.interactive(), in: shape)
+            .shadow(color: .black.opacity(0.08), radius: 16, y: 10)
+    }
+}
+
+private extension View {
+    func cardStyle(cornerRadius: CGFloat = 20, tint: Color = ClipCheckTheme.brand) -> some View {
+        modifier(CardStyle(cornerRadius: cornerRadius, tint: tint))
     }
 }
 
@@ -71,6 +135,7 @@ struct ClipCheck: ClipExperience {
     @State private var pendingRestaurantId: String?
     @State private var menuService = MenuAnalysisService()
     @State private var weatherService = WeatherService()
+    @State private var landingAppeared = false
 
     private var restaurantId: String {
         activeRestaurantId ?? context.pathParameters["restaurantId"] ?? ""
@@ -101,7 +166,7 @@ struct ClipCheck: ClipExperience {
                     .transition(.opacity)
             }
         }
-        .animation(.spring(duration: 0.4), value: showingDetail)
+        .animation(ClipCheckMotion.page, value: showingDetail)
         .fullScreenCover(isPresented: $showingScanner) {
             QRScannerView { scannedValue in
                 showingScanner = false
@@ -126,13 +191,14 @@ struct ClipCheck: ClipExperience {
             .interactiveDismissDisabled()
         }
         .onAppear {
+            landingAppeared = false
             if initiallyHasRestaurant {
                 // Check for dietary params in the invocation URL
                 if let urlDietary = DietaryProfile.fromQuery(context.queryParameters) {
                     dietaryProfile = urlDietary
                     showingDetail = true
                     loadRestaurant()
-                    withAnimation(.easeOut(duration: 0.4)) {
+                    withAnimation(ClipCheckMotion.reveal) {
                         contentAppeared = true
                     }
                 } else {
@@ -140,6 +206,10 @@ struct ClipCheck: ClipExperience {
                     let urlId = context.pathParameters["restaurantId"] ?? ""
                     pendingRestaurantId = urlId
                     showingDietarySelector = true
+                }
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    landingAppeared = true
                 }
             }
         }
@@ -149,107 +219,130 @@ struct ClipCheck: ClipExperience {
 
     private var landingView: some View {
         ScrollView {
-            VStack(spacing: 28) {
-                Spacer().frame(height: 32)
+            VStack(spacing: 14) {
+                Spacer().frame(height: 14)
 
-                // Hero section
-                VStack(spacing: 12) {
-                    ZStack {
-                        Circle()
-                            .fill(.blue.opacity(0.08))
-                            .frame(width: 88, height: 88)
-                        Image(systemName: "qrcode.viewfinder")
-                            .font(.system(size: 40, weight: .light))
-                            .foregroundStyle(.blue)
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(spacing: 14) {
+                        ZStack {
+                            Circle()
+                                .fill(ClipCheckTheme.brand.opacity(0.12))
+                                .frame(width: 74, height: 74)
+                            Image(systemName: "fork.knife.circle.fill")
+                                .font(.system(size: 33, weight: .light))
+                                .foregroundStyle(ClipCheckTheme.brand)
+                        }
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("ClipCheck")
+                                .font(.system(size: 34, weight: .bold, design: .rounded))
+                                .foregroundStyle(ClipCheckTheme.ink)
+                            Text("Instant restaurant safety intelligence")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer(minLength: 0)
                     }
 
-                    Text("ClipCheck")
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-
-                    Text("Instant restaurant safety scores")
-                        .font(.system(size: 15, weight: .regular))
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 8) {
+                        Label("30s Decision", systemImage: "timer")
+                        Label("AI Insights", systemImage: "sparkles")
+                    }
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
                 }
+                .padding(18)
+                .cardStyle(cornerRadius: 30, tint: ClipCheckTheme.brandSoft)
                 .onLongPressGesture {
                     showingQRGenerator = true
                 }
+                .staggered(index: 0, isVisible: landingAppeared)
 
-                // Scan button
                 #if !targetEnvironment(simulator)
                 Button {
                     showingScanner = true
                 } label: {
                     HStack(spacing: 10) {
-                        Image(systemName: "camera.fill")
-                            .font(.system(size: 17, weight: .medium))
-                        Text("Scan QR Code")
+                        Image(systemName: "qrcode.viewfinder")
                             .font(.system(size: 17, weight: .semibold))
+                        Text("Scan Restaurant QR")
+                            .font(.system(size: 17, weight: .semibold))
+                        Spacer()
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 13, weight: .bold))
                     }
                     .foregroundStyle(.white)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 15)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(.blue.gradient, in: RoundedRectangle(cornerRadius: 14))
+                    .background(
+                        LinearGradient(
+                            colors: [ClipCheckTheme.brand, ClipCheckTheme.brandSoft],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ),
+                        in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    )
+                    .shadow(color: ClipCheckTheme.brand.opacity(0.35), radius: 12, y: 6)
                 }
-                .padding(.horizontal, 24)
+                .staggered(index: 1, isVisible: landingAppeared)
                 #endif
 
-                // Manual entry
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("ENTER URL")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.tertiary)
-                        .tracking(0.8)
-                        .padding(.horizontal, 4)
+                VStack(alignment: .leading, spacing: 10) {
+                    SectionTitle(title: "ENTER INVOCATION URL", icon: "link")
 
                     HStack(spacing: 10) {
                         TextField("example.com/restaurant/.../check", text: $manualURL)
-                            .font(.system(size: 14, design: .monospaced))
+                            .font(.system(size: 14, weight: .medium, design: .monospaced))
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
+                            .submitLabel(.go)
+                            .onSubmit { handleScannedURL(manualURL) }
                             .padding(.horizontal, 14)
                             .padding(.vertical, 12)
-                            .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 12))
+                            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                         Button {
                             handleScannedURL(manualURL)
                         } label: {
-                            Image(systemName: "arrow.right.circle.fill")
+                            Image(systemName: "arrow.up.right.circle.fill")
                                 .font(.system(size: 30))
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(manualURL.isEmpty ? Color.secondary.opacity(0.35) : ClipCheckTheme.brand)
                         }
                         .disabled(manualURL.isEmpty)
-                        .opacity(manualURL.isEmpty ? 0.4 : 1)
                     }
                 }
-                .padding(.horizontal, 24)
+                .padding(16)
+                .cardStyle(cornerRadius: 22, tint: ClipCheckTheme.brandSoft)
+                .staggered(index: 2, isVisible: landingAppeared)
 
-                // Demo restaurants
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("DEMO RESTAURANTS")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.tertiary)
-                        .tracking(0.8)
-                        .padding(.horizontal, 4)
+                    SectionTitle(title: "DEMO RESTAURANTS", icon: "building.2.fill")
 
-                    ForEach(demoRestaurants) { restaurant in
+                    ForEach(Array(demoRestaurants.enumerated()), id: \.element.id) { idx, restaurant in
                         Button {
                             navigateToRestaurant(restaurant.id)
                         } label: {
                             demoCard(restaurant)
                         }
                         .buttonStyle(.plain)
+                        .staggered(index: 3 + idx, isVisible: landingAppeared)
                     }
                 }
-                .padding(.horizontal, 24)
+                .padding(16)
+                .cardStyle(cornerRadius: 26, tint: ClipCheckTheme.brandSoft.opacity(0.9))
+                .staggered(index: 3, isVisible: landingAppeared)
 
-                // Dev hint
-                Text("Long-press title for QR generator")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.quaternary)
-                    .padding(.top, 4)
+                Text("Long-press the hero card to open QR generator tools.")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.tertiary)
+                    .padding(.top, 2)
+                    .staggered(index: 5, isVisible: landingAppeared)
 
-                Spacer().frame(height: 32)
+                Spacer().frame(height: 26)
             }
+            .padding(.horizontal, 16)
         }
         .scrollIndicators(.hidden)
     }
@@ -267,7 +360,7 @@ struct ClipCheck: ClipExperience {
     }
 
     private func demoCard(_ restaurant: RestaurantData) -> some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 12) {
             MiniTrustGauge(score: restaurant.trustScore, level: restaurant.trustLevel)
                 .frame(width: 44, height: 44)
 
@@ -295,8 +388,15 @@ struct ClipCheck: ClipExperience {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.quaternary)
         }
-        .padding(16)
-        .cardStyle()
+        .padding(12)
+        .background {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.thinMaterial)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(.white.opacity(0.24), lineWidth: 0.7)
+                }
+        }
     }
 
     // MARK: - Detail View
@@ -307,34 +407,44 @@ struct ClipCheck: ClipExperience {
                 let selectedInspection = restaurant.inspections.first { $0.id == selectedInspectionId }
                     ?? restaurant.inspections.first
 
-                VStack(spacing: 20) {
-                    // Back button
+                VStack(spacing: 16) {
                     HStack {
                         Button {
                             goBackToLanding()
                         } label: {
-                            HStack(spacing: 5) {
+                            HStack(spacing: 6) {
                                 Image(systemName: "chevron.left")
                                     .font(.system(size: 12, weight: .semibold))
                                 Text("Back")
-                                    .font(.system(size: 14, weight: .medium))
+                                    .font(.system(size: 14, weight: .semibold))
                             }
-                            .foregroundStyle(.blue)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(Color.blue.opacity(0.08), in: Capsule())
+                            .foregroundStyle(ClipCheckTheme.brand)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(.thinMaterial, in: Capsule())
                         }
+
                         Spacer()
+
+                        Label("Live Score", systemImage: "waveform.path.ecg")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(restaurant.trustLevel.color)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(restaurant.trustLevel.color.opacity(0.1), in: Capsule())
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 16)
                     .padding(.top, 8)
 
                     restaurantHeader(restaurant)
                         .id("top")
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 18)
+                        .cardStyle(cornerRadius: 26, tint: ClipCheckTheme.brandSoft)
 
                     if !dietaryProfile.isEmpty {
                         DietaryBadge(profile: dietaryProfile)
-                            .padding(.horizontal, 20)
+                            .padding(.horizontal, 16)
                     }
 
                     TrustScoreGauge(
@@ -342,15 +452,17 @@ struct ClipCheck: ClipExperience {
                         level: restaurant.trustLevel,
                         animated: gaugeAnimated
                     )
-                    .frame(height: 250)
+                    .frame(height: 258)
+                    .padding(.vertical, 4)
                     .padding(.horizontal, 16)
+                    .cardStyle(cornerRadius: 28, tint: ClipCheckTheme.brandSoft)
 
                     if !restaurant.inspections.isEmpty {
                         InspectionTimelineView(
                             inspections: restaurant.inspections,
                             selectedId: $selectedInspectionId
                         )
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, 16)
                         .transition(.opacity.combined(with: .move(edge: .bottom)))
                     }
 
@@ -358,20 +470,20 @@ struct ClipCheck: ClipExperience {
                         violationsSection(inspection)
                             .id(inspection.id)
                             .transition(.opacity.combined(with: .move(edge: .bottom)))
-                            .padding(.horizontal, 20)
+                            .padding(.horizontal, 16)
                     }
 
                     AIAdvisorCard(gemini: gemini)
-                        .padding(.horizontal, 20)
-                        .animation(.easeOut(duration: 0.4), value: gemini.isLoading)
+                        .padding(.horizontal, 16)
+                        .animation(ClipCheckMotion.reveal, value: gemini.isLoading)
 
                     PersonalizedRecsCard(
                         gemini: gemini,
                         weather: weatherService,
                         dietary: dietaryProfile
                     )
-                    .padding(.horizontal, 20)
-                    .animation(.easeOut(duration: 0.4), value: gemini.isLoading)
+                    .padding(.horizontal, 16)
+                    .animation(ClipCheckMotion.reveal, value: gemini.isLoading)
 
                     VoiceBriefingButton(
                         gemini: gemini,
@@ -379,11 +491,11 @@ struct ClipCheck: ClipExperience {
                         menuService: menuService,
                         weather: weatherService
                     )
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 16)
 
                     MenuRecommendationCard(service: menuService, dietary: dietaryProfile)
-                        .padding(.horizontal, 20)
-                        .animation(.easeOut(duration: 0.4), value: menuService.isLoading)
+                        .padding(.horizontal, 16)
+                        .animation(ClipCheckMotion.reveal, value: menuService.isLoading)
 
                     if restaurant.trustScore < 70 {
                         NearbyAlternativesSection(
@@ -391,13 +503,13 @@ struct ClipCheck: ClipExperience {
                         ) { newId in
                             switchToRestaurant(newId, scrollProxy: scrollProxy)
                         }
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, 16)
                         .transition(.opacity.combined(with: .move(edge: .bottom)))
                     }
 
                     Spacer().frame(height: 24)
                 }
-                .animation(.spring(duration: 0.35), value: selectedInspectionId)
+                .animation(ClipCheckMotion.card, value: selectedInspectionId)
                 .opacity(contentAppeared ? 1 : 0)
                 .offset(y: contentAppeared ? 0 : 12)
             }
@@ -408,34 +520,40 @@ struct ClipCheck: ClipExperience {
     // MARK: Background
 
     private var backgroundGradient: some View {
-        Color(.systemBackground)
-            .overlay(alignment: .top) {
-                if let restaurant, showingDetail {
-                    EllipticalGradient(
-                        colors: [
-                            restaurant.trustLevel.color.opacity(0.08),
-                            restaurant.trustLevel.color.opacity(0.02),
-                            .clear
-                        ],
-                        center: .top,
-                        startRadiusFraction: 0,
-                        endRadiusFraction: 0.7
-                    )
-                    .frame(height: 400)
-                } else {
-                    EllipticalGradient(
-                        colors: [
-                            Color.blue.opacity(0.04),
-                            .clear
-                        ],
-                        center: .top,
-                        startRadiusFraction: 0,
-                        endRadiusFraction: 0.6
-                    )
-                    .frame(height: 300)
-                }
+        ZStack {
+            LinearGradient(
+                colors: [Color(.systemBackground), Color(.secondarySystemBackground)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+            if let restaurant, showingDetail {
+                EllipticalGradient(
+                    colors: [
+                        restaurant.trustLevel.color.opacity(0.15),
+                        ClipCheckTheme.brand.opacity(0.08),
+                        .clear
+                    ],
+                    center: .top,
+                    startRadiusFraction: 0.05,
+                    endRadiusFraction: 0.9
+                )
+                .frame(height: 460)
+            } else {
+                EllipticalGradient(
+                    colors: [
+                        ClipCheckTheme.brandSoft.opacity(0.18),
+                        ClipCheckTheme.brand.opacity(0.08),
+                        .clear
+                    ],
+                    center: .top,
+                    startRadiusFraction: 0.02,
+                    endRadiusFraction: 0.85
+                )
+                .frame(height: 420)
             }
-            .ignoresSafeArea()
+        }
+        .ignoresSafeArea()
     }
 
     // MARK: URL Parsing
@@ -484,6 +602,7 @@ struct ClipCheck: ClipExperience {
 
     private func finishNavigation(_ id: String) {
         // Reset all state BEFORE showing detail to avoid stale UI flashes
+        landingAppeared = false
         activeRestaurantId = id
         gaugeAnimated = false
         expandedViolations = []
@@ -496,7 +615,7 @@ struct ClipCheck: ClipExperience {
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             loadRestaurant()
-            withAnimation(.easeOut(duration: 0.4)) {
+            withAnimation(ClipCheckMotion.reveal) {
                 contentAppeared = true
             }
         }
@@ -504,11 +623,15 @@ struct ClipCheck: ClipExperience {
 
     private func goBackToLanding() {
         tts.stop()
-        withAnimation(.easeOut(duration: 0.2)) {
+        landingAppeared = false
+        withAnimation(ClipCheckMotion.quick) {
             contentAppeared = false
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
             showingDetail = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                landingAppeared = true
+            }
         }
     }
 
@@ -525,7 +648,7 @@ struct ClipCheck: ClipExperience {
         if let first = restaurant?.inspections.first {
             selectedInspectionId = first.id
         }
-        withAnimation(.easeOut(duration: 1.5).delay(0.3)) {
+        withAnimation(ClipCheckMotion.reveal.delay(0.35)) {
             gaugeAnimated = true
         }
         // Fetch weather if not already loaded
@@ -544,7 +667,7 @@ struct ClipCheck: ClipExperience {
 
     private func switchToRestaurant(_ id: String, scrollProxy: ScrollViewProxy) {
         tts.stop()
-        withAnimation(.easeOut(duration: 0.2)) {
+        withAnimation(ClipCheckMotion.quick) {
             contentAppeared = false
         }
 
@@ -561,7 +684,7 @@ struct ClipCheck: ClipExperience {
 
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                 loadRestaurant()
-                withAnimation(.easeOut(duration: 0.4)) {
+                withAnimation(ClipCheckMotion.reveal) {
                     contentAppeared = true
                 }
             }
@@ -589,14 +712,15 @@ struct ClipCheck: ClipExperience {
     // MARK: Restaurant Header
 
     private func restaurantHeader(_ restaurant: RestaurantData) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             Text(restaurant.name)
-                .font(.system(size: 26, weight: .bold))
-                .foregroundStyle(.primary)
+                .font(.system(size: 27, weight: .bold, design: .rounded))
+                .foregroundStyle(ClipCheckTheme.ink)
 
             Text(restaurant.address)
-                .font(.system(size: 13))
+                .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(.secondary)
+                .lineLimit(2)
 
             HStack(spacing: 16) {
                 if !restaurant.type.isEmpty {
@@ -618,36 +742,37 @@ struct ClipCheck: ClipExperience {
                     .foregroundStyle(.secondary)
                 }
             }
-            .padding(.top, 2)
+            .padding(.top, 4)
         }
         .multilineTextAlignment(.center)
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 8)
     }
 
     // MARK: Violations Section
 
     @ViewBuilder
     private func violationsSection(_ inspection: Inspection) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 13))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(cautionColor)
-                Text("Violations")
-                    .font(.system(size: 16, weight: .semibold))
+                Text("VIOLATIONS")
+                    .font(.system(size: 12, weight: .semibold))
+                    .tracking(0.9)
+                    .foregroundStyle(.secondary)
                 Spacer()
                 Text(monthYearFormatter.string(from: inspection.parsedDate))
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.tertiary)
             }
-            .padding(.horizontal, 4)
 
             ForEach(inspection.infractions) { infraction in
                 ViolationCard(
                     infraction: infraction,
                     isExpanded: expandedViolations.contains(infraction.id)
                 ) {
-                    withAnimation(.spring(duration: 0.3)) {
+                    withAnimation(ClipCheckMotion.card) {
                         if expandedViolations.contains(infraction.id) {
                             expandedViolations.remove(infraction.id)
                         } else {
@@ -668,35 +793,43 @@ private struct TrustScoreGauge: View {
     let animated: Bool
 
     @State private var showPulse = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var progress: Double {
         animated ? Double(score) / 100.0 : 0
     }
 
-    private var spectrumGradient: AngularGradient {
-        AngularGradient(
-            gradient: Gradient(stops: [
-                .init(color: dangerColor, location: 0.0),
-                .init(color: dangerColor, location: 0.15),
-                .init(color: cautionColor, location: 0.30),
-                .init(color: cautionColor, location: 0.413),
-                .init(color: safeColor, location: 0.525),
-                .init(color: safeColor, location: 0.75),
-            ]),
-            center: .center
-        )
+    private var activeGradient: AngularGradient {
+        let colors: [Color]
+        switch level {
+        case .safe:
+            colors = [ClipCheckTheme.brandSoft.opacity(0.92), safeColor]
+        case .caution:
+            colors = [ClipCheckTheme.brandSoft.opacity(0.92), cautionColor]
+        case .danger:
+            colors = [ClipCheckTheme.brandSoft.opacity(0.9), dangerColor]
+        }
+        return AngularGradient(gradient: Gradient(colors: colors), center: .center)
     }
 
-    private let trackStroke = StrokeStyle(lineWidth: 10, lineCap: .round)
-    private let arcStroke = StrokeStyle(lineWidth: 12, lineCap: .round)
+    private let trackStroke = StrokeStyle(lineWidth: 11, lineCap: .round)
+    private let arcStroke = StrokeStyle(lineWidth: 13, lineCap: .round)
 
     var body: some View {
         ZStack {
             // Background track
             Circle()
                 .trim(from: 0, to: 0.75)
-                .stroke(Color(.quaternarySystemFill), style: trackStroke)
+                .stroke(Color(.tertiarySystemFill), style: trackStroke)
                 .rotationEffect(.degrees(135))
+
+            Circle()
+                .fill(.ultraThinMaterial)
+                .frame(width: 188, height: 188)
+                .overlay {
+                    Circle()
+                        .strokeBorder(.white.opacity(0.18), lineWidth: 0.8)
+                }
 
             // Soft glow behind arc
             Circle()
@@ -708,7 +841,7 @@ private struct TrustScoreGauge: View {
             // Active arc
             Circle()
                 .trim(from: 0, to: progress * 0.75)
-                .stroke(spectrumGradient, style: arcStroke)
+                .stroke(activeGradient, style: arcStroke)
                 .rotationEffect(.degrees(135))
 
             // Endpoint dot
@@ -722,6 +855,7 @@ private struct TrustScoreGauge: View {
                     Text("\(animated ? score : 0)")
                         .font(.system(size: 54, weight: .bold, design: .rounded))
                         .foregroundStyle(level.color)
+                        .shadow(color: level.color.opacity(0.25), radius: 5, y: 2)
                         .contentTransition(.numericText(value: Double(animated ? score : 0)))
 
                     Text("/100")
@@ -740,13 +874,14 @@ private struct TrustScoreGauge: View {
         }
         .padding(20)
         .task {
+            if reduceMotion { return }
             // Pulse after gauge fill animation completes (0.3s delay + 1.5s fill)
             try? await Task.sleep(for: .seconds(2.0))
-            withAnimation(.easeInOut(duration: 0.35)) {
+            withAnimation(ClipCheckMotion.reveal) {
                 showPulse = true
             }
             try? await Task.sleep(for: .seconds(0.35))
-            withAnimation(.easeInOut(duration: 0.25)) {
+            withAnimation(ClipCheckMotion.quick) {
                 showPulse = false
             }
         }
@@ -798,7 +933,7 @@ private struct InspectionTimelineView: View {
             HStack(spacing: 8) {
                 Image(systemName: "clock.arrow.circlepath")
                     .font(.system(size: 13))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(ClipCheckTheme.brand)
                 Text("Inspection History")
                     .font(.system(size: 16, weight: .semibold))
             }
@@ -822,7 +957,7 @@ private struct InspectionTimelineView: View {
                     .padding(.horizontal, 20)
                     .padding(.vertical, 16)
                 }
-                .cardStyle()
+                .cardStyle(cornerRadius: 20, tint: ClipCheckTheme.brandSoft)
                 .onAppear {
                     if let id = mostRecentId {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -905,7 +1040,7 @@ private struct InspectionTimelineView: View {
                     .foregroundStyle(status.color)
                     .opacity(isSelected ? 1.0 : 0.6)
             }
-            .animation(.spring(duration: 0.3), value: isSelected)
+            .animation(ClipCheckMotion.card, value: isSelected)
         }
         .buttonStyle(.plain)
     }
@@ -973,7 +1108,7 @@ private struct InspectionTimelineView: View {
             }
         }
         .padding(12)
-        .cardStyle(cornerRadius: 14)
+        .cardStyle(cornerRadius: 16, tint: ClipCheckTheme.brandSoft)
     }
 }
 
@@ -982,6 +1117,7 @@ private struct InspectionTimelineView: View {
 private struct PulseRing: View {
     let color: Color
     @State private var animating = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Circle()
@@ -990,6 +1126,7 @@ private struct PulseRing: View {
             .scaleEffect(animating ? 1.8 : 1.0)
             .opacity(animating ? 0 : 0.6)
             .onAppear {
+                if reduceMotion { return }
                 withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false)) {
                     animating = true
                 }
@@ -1039,7 +1176,7 @@ private struct ViolationCard: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .cardStyle(cornerRadius: 12)
+            .cardStyle(cornerRadius: 14, tint: ClipCheckTheme.brandSoft)
         }
         .buttonStyle(.plain)
     }
@@ -1072,16 +1209,16 @@ private struct AIAdvisorCard: View {
                 HStack(spacing: 8) {
                     Image(systemName: "sparkles")
                         .font(.system(size: 14))
-                        .foregroundStyle(.purple)
+                        .foregroundStyle(ClipCheckTheme.brand)
                     Text("AI Safety Advisor")
                         .font(.system(size: 16, weight: .semibold))
                     Spacer()
                     Text("Gemini")
                         .font(.system(size: 10, weight: .medium, design: .rounded))
-                        .foregroundStyle(.purple.opacity(0.5))
+                        .foregroundStyle(ClipCheckTheme.brand.opacity(0.65))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
-                        .background(.purple.opacity(0.06), in: Capsule())
+                        .background(ClipCheckTheme.brand.opacity(0.12), in: Capsule())
                 }
 
                 if gemini.isLoading {
@@ -1091,7 +1228,7 @@ private struct AIAdvisorCard: View {
                 }
             }
             .padding(16)
-            .cardStyle()
+            .cardStyle(cornerRadius: 20, tint: ClipCheckTheme.brand)
             .transition(.opacity.combined(with: .offset(y: 8)))
         }
     }
@@ -1154,7 +1291,7 @@ private struct AIAdvisorCard: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(cautionColor.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
+            .background(cautionColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
         }
 
         // Recommendations
@@ -1165,7 +1302,7 @@ private struct AIAdvisorCard: View {
                 Text("Tips")
                     .font(.system(size: 12, weight: .semibold))
             }
-            .foregroundStyle(.blue)
+            .foregroundStyle(ClipCheckTheme.brand)
 
             Text(result.recommendations)
                 .font(.system(size: 13))
@@ -1175,7 +1312,7 @@ private struct AIAdvisorCard: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.blue.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
+        .background(ClipCheckTheme.brand.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
 
         // Error note
         if gemini.error != nil {
@@ -1203,7 +1340,7 @@ private struct NearbyAlternativesSection: View {
                 HStack(spacing: 8) {
                     Image(systemName: "location.fill")
                         .font(.system(size: 13))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(ClipCheckTheme.brand)
                     Text("Safer Alternatives Nearby")
                         .font(.system(size: 16, weight: .semibold))
                 }
@@ -1247,7 +1384,7 @@ private struct NearbyAlternativesSection: View {
                 .foregroundStyle(.tertiary)
         }
         .padding(12)
-        .cardStyle(cornerRadius: 14)
+        .cardStyle(cornerRadius: 16, tint: ClipCheckTheme.brandSoft)
     }
 
     private func pseudoDistance(for id: String) -> String {
@@ -1364,11 +1501,16 @@ private struct VoiceBriefingButton: View {
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .background(buttonGradient, in: RoundedRectangle(cornerRadius: 14))
+            .background(buttonGradient, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(.white.opacity(0.24), lineWidth: 0.8)
+            }
+            .shadow(color: .black.opacity(0.16), radius: 10, y: 6)
             .opacity(isDisabled ? 0.5 : 1.0)
         }
         .disabled(isDisabled)
-        .animation(.easeInOut(duration: 0.25), value: tts.state)
+        .animation(ClipCheckMotion.quick, value: tts.state)
     }
 
     private var buttonLabel: String {
@@ -1382,9 +1524,9 @@ private struct VoiceBriefingButton: View {
     private var buttonGradient: LinearGradient {
         switch tts.state {
         case .playing:
-            return LinearGradient(colors: [.purple, .pink.opacity(0.9)], startPoint: .leading, endPoint: .trailing)
+            return LinearGradient(colors: [ClipCheckTheme.brandSoft, ClipCheckTheme.brand], startPoint: .leading, endPoint: .trailing)
         default:
-            return LinearGradient(colors: [.blue, .blue.opacity(0.8)], startPoint: .leading, endPoint: .trailing)
+            return LinearGradient(colors: [ClipCheckTheme.brand, ClipCheckTheme.brandSoft], startPoint: .leading, endPoint: .trailing)
         }
     }
 }
@@ -1446,7 +1588,7 @@ private struct MenuRecommendationCard: View {
             .padding(.vertical, 8)
         }
         .padding(16)
-        .cardStyle()
+        .cardStyle(cornerRadius: 20, tint: ClipCheckTheme.brandSoft)
     }
 
     // MARK: Recommended
@@ -1465,11 +1607,11 @@ private struct MenuRecommendationCard: View {
                 if !dietary.isEmpty {
                     Text(dietary.summary)
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(ClipCheckTheme.brand)
                         .lineLimit(1)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
-                        .background(.blue.opacity(0.06), in: Capsule())
+                        .background(ClipCheckTheme.brand.opacity(0.12), in: Capsule())
                 }
             }
 
@@ -1492,11 +1634,11 @@ private struct MenuRecommendationCard: View {
                 }
                 .opacity(hasContent ? 1 : 0)
                 .offset(y: hasContent ? 0 : 8)
-                .animation(.easeOut(duration: 0.3).delay(Double(index) * 0.1), value: hasContent)
+                .animation(ClipCheckMotion.reveal.delay(Double(index) * 0.1), value: hasContent)
             }
         }
         .padding(16)
-        .cardStyle()
+        .cardStyle(cornerRadius: 20, tint: ClipCheckTheme.brandSoft)
     }
 
     // MARK: Avoid
@@ -1531,14 +1673,7 @@ private struct MenuRecommendationCard: View {
             }
         }
         .padding(16)
-        .background {
-            RoundedRectangle(cornerRadius: 16)
-                .fill(cautionColor.opacity(0.03))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .strokeBorder(cautionColor.opacity(0.12), lineWidth: 0.5)
-                )
-        }
+        .cardStyle(cornerRadius: 20, tint: cautionColor)
     }
 }
 
@@ -1567,7 +1702,7 @@ private struct PersonalizedRecsCard: View {
                     HStack(spacing: 8) {
                         Image(systemName: "person.text.rectangle.fill")
                             .font(.system(size: 14))
-                            .foregroundStyle(.teal)
+                            .foregroundStyle(ClipCheckTheme.brand)
                         Text("Personalized For You")
                             .font(.system(size: 16, weight: .semibold))
                     }
@@ -1577,7 +1712,7 @@ private struct PersonalizedRecsCard: View {
                         HStack(alignment: .top, spacing: 10) {
                             Image(systemName: weather.weather?.sfSymbol ?? "cloud.fill")
                                 .font(.system(size: 16))
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(ClipCheckTheme.brand)
                                 .frame(width: 24)
 
                             VStack(alignment: .leading, spacing: 2) {
@@ -1603,7 +1738,7 @@ private struct PersonalizedRecsCard: View {
                         HStack(alignment: .top, spacing: 10) {
                             Image(systemName: period.sfSymbol)
                                 .font(.system(size: 16))
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(ClipCheckTheme.brandSoft)
                                 .frame(width: 24)
 
                             VStack(alignment: .leading, spacing: 2) {
@@ -1652,7 +1787,7 @@ private struct PersonalizedRecsCard: View {
                     }
                 }
                 .padding(16)
-                .cardStyle()
+                .cardStyle(cornerRadius: 20, tint: ClipCheckTheme.brand)
                 .transition(.opacity.combined(with: .offset(y: 8)))
             }
         }
@@ -1672,11 +1807,11 @@ private struct DietarySelectorSheet: View {
     let onContinue: () -> Void
 
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 18) {
             // Header
             VStack(spacing: 6) {
                 Text("Dietary Preferences")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
                 Text("We'll personalize your safety report")
                     .font(.system(size: 14))
                     .foregroundStyle(.secondary)
@@ -1741,7 +1876,14 @@ private struct DietarySelectorSheet: View {
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(.blue.gradient, in: RoundedRectangle(cornerRadius: 14))
+                        .background(
+                            LinearGradient(
+                                colors: [ClipCheckTheme.brand, ClipCheckTheme.brandSoft],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ),
+                            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        )
                 }
 
                 if !profile.isEmpty {
@@ -1750,13 +1892,20 @@ private struct DietarySelectorSheet: View {
                     } label: {
                         Text("Clear All")
                             .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(.red.opacity(0.7))
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 16)
+        .background(
+            LinearGradient(
+                colors: [ClipCheckTheme.brandSoft.opacity(0.08), .clear],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
     }
 }
 
@@ -1774,16 +1923,16 @@ private struct ChipButton: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
                 .background(
-                    isSelected ? Color.blue.opacity(0.15) : Color(.tertiarySystemFill),
+                    isSelected ? ClipCheckTheme.brand.opacity(0.18) : Color(.tertiarySystemFill),
                     in: Capsule()
                 )
                 .overlay(
-                    Capsule().stroke(isSelected ? Color.blue : .clear, lineWidth: 1.5)
+                    Capsule().stroke(isSelected ? ClipCheckTheme.brand : .clear, lineWidth: 1.5)
                 )
-                .foregroundStyle(isSelected ? .blue : .primary)
+                .foregroundStyle(isSelected ? ClipCheckTheme.brand : .primary)
         }
         .buttonStyle(.plain)
-        .animation(.easeOut(duration: 0.15), value: isSelected)
+        .animation(ClipCheckMotion.quick, value: isSelected)
     }
 }
 
@@ -1851,14 +2000,17 @@ private struct DietaryBadge: View {
         HStack(spacing: 6) {
             Image(systemName: "leaf.fill")
                 .font(.system(size: 11))
-                .foregroundStyle(.green)
+                .foregroundStyle(ClipCheckTheme.brandSoft)
             Text(profile.summary)
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.primary.opacity(0.7))
+                .foregroundStyle(ClipCheckTheme.ink.opacity(0.8))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
-        .background(Color(.tertiarySystemFill), in: Capsule())
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay {
+            Capsule().strokeBorder(.white.opacity(0.2), lineWidth: 0.8)
+        }
     }
 }
 
@@ -1866,6 +2018,7 @@ private struct DietaryBadge: View {
 
 private struct WaveformIndicator: View {
     @State private var animating = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let barCount = 4
     private let barWidth: CGFloat = 3
@@ -1877,14 +2030,14 @@ private struct WaveformIndicator: View {
                     .fill(.white)
                     .frame(width: barWidth, height: animating ? barHeight(for: i) : 4)
                     .animation(
-                        .easeInOut(duration: 0.4)
+                        (reduceMotion ? ClipCheckMotion.quick : .easeInOut(duration: 0.4)
                             .repeatForever(autoreverses: true)
-                            .delay(Double(i) * 0.12),
+                            .delay(Double(i) * 0.12)),
                         value: animating
                     )
             }
         }
-        .onAppear { animating = true }
+        .onAppear { animating = !reduceMotion }
     }
 
     private func barHeight(for index: Int) -> CGFloat {

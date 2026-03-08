@@ -4,6 +4,10 @@
 import SwiftUI
 import CoreImage.CIFilterBuiltins
 
+private enum QRTheme {
+    static let accent = Color(red: 0.188, green: 0.384, blue: 0.949)
+}
+
 struct QRGeneratorView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var saving = false
@@ -15,51 +19,65 @@ struct QRGeneratorView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 8) {
-                    Text("Print these QR codes and place them at restaurant tables for the demo.")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
-                        .padding(.top, 8)
+            ZStack {
+                LinearGradient(
+                    colors: [Color(red: 0.93, green: 0.97, blue: 1.0), Color(.systemBackground)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
 
-                    // Personalized demo QR codes (with allergens/diet in URL)
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("PERSONALIZED DEMOS")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                            .tracking(1)
-                            .padding(.horizontal, 4)
+                ScrollView {
+                    VStack(spacing: 14) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("ClipCheck QR Toolkit")
+                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                            Text("Print these codes and place them at restaurant tables for quick demo invocations.")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(18)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
 
-                        LazyVGrid(columns: [
-                            GridItem(.flexible(), spacing: 16),
-                            GridItem(.flexible(), spacing: 16),
-                        ], spacing: 16) {
-                            ForEach(personalizedDemos, id: \.url) { demo in
-                                personalizedQRCard(demo)
+                        VStack(alignment: .leading, spacing: 10) {
+                            Label("PERSONALIZED DEMOS", systemImage: "sparkles")
+                                .font(.system(size: 11, weight: .semibold))
+                                .tracking(0.9)
+                                .foregroundStyle(.secondary)
+
+                            LazyVGrid(columns: [
+                                GridItem(.flexible(), spacing: 16),
+                                GridItem(.flexible(), spacing: 16),
+                            ], spacing: 16) {
+                                ForEach(personalizedDemos, id: \.url) { demo in
+                                    personalizedQRCard(demo)
+                                }
                             }
                         }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
+                        .padding(16)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
 
-                    Divider().padding(.horizontal, 20)
+                        VStack(alignment: .leading, spacing: 10) {
+                            Label("ALL RESTAURANTS", systemImage: "building.2.fill")
+                                .font(.system(size: 11, weight: .semibold))
+                                .tracking(0.9)
+                                .foregroundStyle(.secondary)
 
-                    Text("ALL RESTAURANTS")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                        .tracking(1)
-                        .padding(.horizontal, 20)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    LazyVGrid(columns: [
-                        GridItem(.flexible(), spacing: 16),
-                        GridItem(.flexible(), spacing: 16),
-                    ], spacing: 20) {
-                        ForEach(restaurants) { restaurant in
-                            qrCard(restaurant)
+                            LazyVGrid(columns: [
+                                GridItem(.flexible(), spacing: 16),
+                                GridItem(.flexible(), spacing: 16),
+                            ], spacing: 20) {
+                                ForEach(restaurants) { restaurant in
+                                    qrCard(restaurant)
+                                }
+                            }
                         }
+                        .padding(16)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
@@ -121,7 +139,8 @@ struct QRGeneratorView: View {
                     .resizable()
                     .scaledToFit()
                     .frame(width: 140, height: 140)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .padding(8)
+                    .background(.white, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
 
             Text(demo.label)
@@ -130,13 +149,16 @@ struct QRGeneratorView: View {
 
             Text(demo.subtitle)
                 .font(.system(size: 10))
-                .foregroundStyle(.blue)
+                .foregroundStyle(QRTheme.accent)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
         }
         .padding(12)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
-        .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(.white.opacity(0.25), lineWidth: 0.8)
+        }
     }
 
     // MARK: - QR Card
@@ -151,7 +173,8 @@ struct QRGeneratorView: View {
                     .resizable()
                     .scaledToFit()
                     .frame(width: 140, height: 140)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .padding(8)
+                    .background(.white, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
 
             Text(restaurant.name)
@@ -168,8 +191,11 @@ struct QRGeneratorView: View {
             }
         }
         .padding(12)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
-        .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(.white.opacity(0.25), lineWidth: 0.8)
+        }
     }
 
     // MARK: - QR Generation
